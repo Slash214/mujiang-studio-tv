@@ -1,7 +1,7 @@
 import { ART_CRITIQUE_PLUGIN_ID } from "@/lib/art-critique/contracts";
 import { EAGLE_PLUGIN_ID } from "@/lib/plugins/builtin/eagle";
 import { PROMPT_OPTIMIZER_PLUGIN_ID } from "@/lib/plugins/builtin/prompt-optimizer";
-import { RUNNINGHUB_PLUGIN_ID } from "@/lib/plugins/builtin/workflows";
+import { COMFYUI_LOCAL_PLUGIN_ID, RUNNINGHUB_PLUGIN_ID } from "@/lib/plugins/builtin/workflows";
 
 import { EDITOR_SHELL_PLUGIN_ID } from "./builtin/editor/editor-shell";
 
@@ -13,6 +13,7 @@ import { EDITOR_SHELL_PLUGIN_ID } from "./builtin/editor/editor-shell";
  */
 export const OFFICIAL_APPLICATION_PLUGIN_IDS = [
     RUNNINGHUB_PLUGIN_ID,
+    COMFYUI_LOCAL_PLUGIN_ID,
     EAGLE_PLUGIN_ID,
     PROMPT_OPTIMIZER_PLUGIN_ID,
     ART_CRITIQUE_PLUGIN_ID,

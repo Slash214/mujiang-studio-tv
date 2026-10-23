@@ -7,8 +7,18 @@ import (
 )
 
 func BundledWorkflowManifests() []protocol.Manifest {
+	comfy := workflowPluginManifest(WorkflowComfyUILocal, "本机 ComfyUI", "连接本机 ComfyUI（127.0.0.1:8188），用 API 格式工作流出图/出视频。")
+	kept := make([]protocol.ManifestWorkflow, 0, len(comfy.Contributes.Workflows))
+	for _, item := range comfy.Contributes.Workflows {
+		if item.Capability == protocol.CapabilityAudio {
+			continue
+		}
+		kept = append(kept, item)
+	}
+	comfy.Contributes.Workflows = kept
 	return []protocol.Manifest{
 		workflowPluginManifest(WorkflowRunningHub, "RunningHub 工作流", "在画布中拉取并执行 RunningHub Workflow 与 App。"),
+		comfy,
 	}
 }
 
@@ -47,6 +57,8 @@ func WorkflowIDForInterface(value string) (string, bool) {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "runninghub-workflow-image", "runninghub-workflow-video", "runninghub-workflow-audio":
 		return WorkflowRunningHub, true
+	case "comfyui-local-image", "comfyui-local-video":
+		return WorkflowComfyUILocal, true
 	default:
 		return "", false
 	}

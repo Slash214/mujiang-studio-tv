@@ -11,7 +11,7 @@ import { listRegisteredPlugins } from "@/lib/plugins/plugin-registry";
 import "@/lib/plugins/builtin";
 import { EAGLE_PLUGIN_ID } from "@/lib/plugins/builtin/eagle";
 import { PROMPT_OPTIMIZER_PLUGIN_ID } from "@/lib/plugins/builtin/prompt-optimizer";
-import { RUNNINGHUB_PLUGIN_ID } from "@/lib/plugins/builtin/workflows";
+import { COMFYUI_LOCAL_PLUGIN_ID, RUNNINGHUB_PLUGIN_ID } from "@/lib/plugins/builtin/workflows";
 import { isOfficialApplicationPluginId } from "@/lib/plugins/official-applications";
 import type { PluginManifest, PluginManifestV2, RegisteredPlugin } from "@/lib/plugins/plugin-types";
 import { getEagleLibrary, type EagleFolder } from "@/services/api/eagle";
@@ -204,7 +204,12 @@ export default function PluginsPage() {
     const detailsPlugin = detailsPluginId ? registeredPlugins.find((plugin) => plugin.manifest.id === detailsPluginId) : undefined;
 
     const hasPluginConfiguration = (plugin: RegisteredPlugin) => Boolean(plugin.manifest.configuration?.fields?.length);
-    const canConfigurePlugin = (plugin: RegisteredPlugin) => localRuntime ? hasPluginConfiguration(plugin) : Boolean(pluginStates[plugin.manifest.id]?.canConfigure) && (hasPluginConfiguration(plugin) || plugin.manifest.id === RUNNINGHUB_PLUGIN_ID);
+    const canConfigurePlugin = (plugin: RegisteredPlugin) => {
+        if (localRuntime) {
+            return hasPluginConfiguration(plugin) || plugin.manifest.id === COMFYUI_LOCAL_PLUGIN_ID;
+        }
+        return Boolean(pluginStates[plugin.manifest.id]?.canConfigure) && (hasPluginConfiguration(plugin) || plugin.manifest.id === RUNNINGHUB_PLUGIN_ID || plugin.manifest.id === COMFYUI_LOCAL_PLUGIN_ID);
+    };
 
     const isPluginEnabled = (plugin: RegisteredPlugin, installation = installations.find((item) => item.manifest.id === plugin.manifest.id)) => pluginStates[plugin.manifest.id]?.effectiveEnabled ?? Boolean(installation?.enabled);
 
@@ -583,6 +588,20 @@ export default function PluginsPage() {
                                                 }}
                                             >
                                                 打开工作流设置
+                                            </Button>
+                                        </div>
+                                    ) : settingsPlugin.manifest.id === COMFYUI_LOCAL_PLUGIN_ID ? (
+                                        <div className="plugin-settings-empty">
+                                            <p>本机 ComfyUI 的 Base URL、API 工作流 JSON 和字段映射在设置页「个人渠道」中维护。</p>
+                                            <Button
+                                                type="primary"
+                                                icon={<ExternalLink className="size-4" />}
+                                                onClick={() => {
+                                                    setSettingsPluginId(null);
+                                                    navigate("/settings?section=channels");
+                                                }}
+                                            >
+                                                打开 ComfyUI 设置
                                             </Button>
                                         </div>
                                     ) : (

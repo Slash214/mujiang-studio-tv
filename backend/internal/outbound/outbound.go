@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"infinite-canvas/backend/internal/desktopnet"
@@ -33,6 +34,7 @@ type OutboundHeader struct {
 var (
 	outboundTransport          = newOutboundTransport(resolveOutboundHost)
 	customRelayTransport       = newOutboundTransport(resolveCustomRelayHost)
+	runtimeAllowedPrivateHosts sync.Map
 	blockedCustomRelayPrefixes = []netip.Prefix{
 		netip.MustParsePrefix("0.0.0.0/8"),
 		netip.MustParsePrefix("100.64.0.0/10"),
@@ -487,12 +489,28 @@ func allowPrivateUpstreams() bool {
 	}
 }
 
+// AllowPrivateUpstreamHosts registers exact hostnames that may resolve to
+// loopback or private addresses for the current process. Used by local desktop
+// profiles to reach trusted Lan/ComfyUI endpoints without opening all private IPs.
+func AllowPrivateUpstreamHosts(hosts ...string) {
+	for _, host := range hosts {
+		normalized := normalizeOutboundHost(host)
+		if normalized == "" {
+			continue
+		}
+		runtimeAllowedPrivateHosts.Store(normalized, true)
+	}
+}
+
 // allowedPrivateUpstreamHost lets operators pin only explicitly trusted upstream
 // hostnames to an internal route without disabling SSRF protection for every URL.
 func AllowedPrivateUpstreamHost(host string) bool {
 	host = normalizeOutboundHost(host)
 	if host == "" {
 		return false
+	}
+	if _, ok := runtimeAllowedPrivateHosts.Load(host); ok {
+		return true
 	}
 	for _, configured := range strings.Split(os.Getenv("CANVAS_ALLOWED_PRIVATE_UPSTREAM_HOSTS"), ",") {
 		if normalizeOutboundHost(configured) == host {

@@ -5,7 +5,7 @@ import { usePluginStore } from "@/stores/use-plugin-store";
 export type GenerationWorkflowMode = "text" | "image" | "video" | "audio";
 
 export type GenerationWorkflowExecution = {
-	provider: "runninghub";
+    provider: "runninghub" | "comfyui";
     kind: RunningHubWorkflowKind;
     capability: RunningHubCapability;
     interfaceType: string;
@@ -28,7 +28,6 @@ export function resolveGenerationWorkflowExecution(config: AiConfig, mode: Gener
         const runningHub = config.runningHub;
         const workflowId = runningHub.workflowId.trim();
         const kind = runningHub.selectedKind === "app" ? "app" : "workflow";
-        // RunningHub 工作流的参数拉取、提交和轮询固定使用积分 API Key；企业级 Key 只用于素材上传。
         const apiKey = runningHub.apiKey;
         if (!runningHub.enabled || !runningHub.baseUrl.trim() || !apiKey.trim() || !workflowId) {
             throw new Error("RunningHub 工作流配置不完整，请填写积分 API Key 并选择已保存条目");
@@ -51,11 +50,41 @@ export function resolveGenerationWorkflowExecution(config: AiConfig, mode: Gener
             webappId,
             workflowJson: workflow.workflowJson || {},
             workflowFields: workflow.fields || [],
+        };
+    }
 
-		};
-	}
+    if (workflowProvider === "comfyui") {
+        if (!workflowProviderPluginEnabled(usePluginStore.getState().runtimeStatuses, "comfyui")) throw new Error("本机 ComfyUI 工作流插件未启用");
+        const comfyUI = config.comfyUI;
+        const workflowId = comfyUI.workflowId.trim();
+        if (!comfyUI.enabled || !comfyUI.baseUrl.trim() || !workflowId) {
+            throw new Error("本机 ComfyUI 配置不完整，请填写 Base URL 并选择已保存工作流");
+        }
+        const workflow = comfyUI.workflows.find((item) => item.workflowId.trim() === workflowId);
+        if (!workflow) throw new Error("当前 ComfyUI 工作流条目不存在，请重新选择已保存条目");
+        if (!workflow.workflowJson || !Object.keys(workflow.workflowJson).length) {
+            throw new Error("当前 ComfyUI 工作流缺少 API JSON，请重新导入");
+        }
+        const capability = normalizeRunningHubCapability(workflow.capability, normalizeRunningHubCapability(comfyUI.capability));
+        assertWorkflowCapability("本机 ComfyUI", capability, mode);
+        if (capability === "audio") throw new Error("本机 ComfyUI 暂不支持音频工作流");
+        const name = workflow.title?.trim() || workflowId;
+        return {
+            provider: "comfyui",
+            kind: "workflow",
+            capability,
+            interfaceType: `comfyui-local-${capability}`,
+            name,
+            taskModel: workflowTaskModel("ComfyUI · ", name),
+            providerModel: workflowId,
+            workflowId,
+            webappId: "",
+            workflowJson: workflow.workflowJson || {},
+            workflowFields: workflow.fields || [],
+        };
+    }
 
-	throw new Error("未知工作流提供方");
+    throw new Error("未知工作流提供方");
 }
 
 function assertWorkflowCapability(providerName: string, capability: RunningHubCapability, mode: GenerationWorkflowMode) {

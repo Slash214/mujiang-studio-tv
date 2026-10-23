@@ -90,6 +90,13 @@ export function localWorkspaceConfig(config: AiConfig): AiConfig {
             ...config,
             channels: config.channels.filter((channel) => channel.scope !== "system" && !isSystemProxyBaseUrl(channel.baseUrl)),
             runningHub: { ...defaultConfig.runningHub },
+            comfyUI: {
+                ...defaultConfig.comfyUI,
+                ...(config.comfyUI || {}),
+                baseUrl: config.comfyUI?.baseUrl?.trim() || defaultConfig.comfyUI.baseUrl,
+                workflows: Array.isArray(config.comfyUI?.workflows) ? config.comfyUI.workflows : [],
+                defaultWorkflows: config.comfyUI?.defaultWorkflows || {},
+            },
         },
     }).config;
 }

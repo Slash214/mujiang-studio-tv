@@ -4,8 +4,8 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "dev": "vite --host 0.0.0.0 --port 3000",
-        "dev:slim": "BEEFTV_FULL_MEDIA_RESOURCES=0 vite --host 0.0.0.0 --port 3000",
+        "dev": "vite --host 0.0.0.0 --port 13000",
+        "dev:slim": "BEEFTV_FULL_MEDIA_RESOURCES=0 vite --host 0.0.0.0 --port 13000",
         "build": "tsc --noEmit && vite build",
         "build:full": "BEEFTV_FULL_MEDIA_RESOURCES=1 bun run build",
         "build:slim": "BEEFTV_FULL_MEDIA_RESOURCES=0 bun run build",
@@ -15,7 +15,7 @@
         "test:canvas": "bun test test/canvas-media-performance.test.ts test/canvas-node-title-interaction.test.ts test/canvas-spatial-index.test.ts",
         "test": "bun run scripts/run-test-suite.mjs",
         "test:director:e2e": "bun scripts/director-p0-chrome-e2e.mjs",
-        "start": "vite preview --host 0.0.0.0 --port 3000",
+        "start": "vite preview --host 0.0.0.0 --port 13000",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
         "lint": "eslint src test"

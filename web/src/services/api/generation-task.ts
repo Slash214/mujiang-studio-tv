@@ -8,6 +8,7 @@ import { submitGenerationCommand } from "./generation-submission";
 import { modelCapabilityConfigFor } from "@/lib/model-capabilities";
 import { grokImagePromptLimitError } from "@/lib/grok-image-prompt-limit";
 import { resolveGenerationWorkflowExecution, type GenerationWorkflowExecution } from "@/lib/generation-workflow-execution";
+import { prepareComfyUIReferenceSlots } from "@/lib/comfyui-reference-slots";
 import { isArkPlanBaseUrl } from "@/lib/seedance-video";
 import { portraitGenerationError, resolveVideoOperation } from "@/lib/model-selection";
 import { logicalModelIDForConfig, modelOptionName, resolveModelChannel, resolveModelRequestConfig, type AiConfig } from "@/stores/use-config-store";
@@ -379,7 +380,7 @@ function backendGenerationTaskInput(options: BackendGenerationTaskOptions, prepa
             mode,
             prompt,
             ...(workflow ? { execution: workflowPublicExecution(workflow) } : {}),
-            config: backendProviderConfig(config, mode),
+            config: backendProviderConfig(config, mode, prepared.referenceImages.length),
             capabilityOptions: logicalModelId ? logicalCapabilityOptions(config, mode) : undefined,
             textHistory: options.textHistory,
             ...(mode === "text" ? { textOptions: { stream: options.streamText !== false, thinking: options.enableThinking === true } } : {}),
@@ -471,10 +472,13 @@ function backendMediaReference<T extends ReferenceVideo | ReferenceAudio>(media:
     } as T;
 }
 
-export function backendProviderConfig(config: AiConfig, mode: BackendGenerationMode = "image") {
+export function backendProviderConfig(config: AiConfig, mode: BackendGenerationMode = "image", referenceImageCount?: number) {
     const requestConfig = resolveModelRequestConfig(config, config.model);
     const workflow = resolveGenerationWorkflowExecution(config, mode);
-    if (workflow) return workflowProviderConfig(config, requestConfig, workflow);
+    if (workflow) {
+        const payload = workflowProviderConfig(config, requestConfig, workflow);
+        return referenceImageCount === undefined ? payload : prepareComfyUIReferenceSlots(payload, referenceImageCount);
+    }
     const generationOptions = {
         size: config.size,
         quality: omittedImageQuality(config.quality, requestConfig),
@@ -515,11 +519,12 @@ export function backendProviderConfig(config: AiConfig, mode: BackendGenerationM
 
 function workflowProviderConfig(config: AiConfig, requestConfig: ReturnType<typeof resolveModelRequestConfig>, workflow: GenerationWorkflowExecution) {
     const runningHubActive = workflow.provider === "runninghub";
+    const comfyUIActive = workflow.provider === "comfyui";
     return {
         channelId: "",
         apiFormat: requestConfig.apiFormat,
         interfaceType: workflow.interfaceType,
-        baseUrl: config.runningHub.baseUrl,
+        baseUrl: comfyUIActive ? config.comfyUI.baseUrl : config.runningHub.baseUrl,
         apiKey: runningHubActive ? config.runningHub.apiKey : "",
         // 工作流是独立 Provider，不能继承普通模型渠道的密钥和自定义头。
         secretKey: "",

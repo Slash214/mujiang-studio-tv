@@ -3,6 +3,7 @@ import { Check, ChevronDown } from "lucide-react";
 import { Popover } from "antd";
 
 import { canvasThemes, type CanvasTheme } from "@/lib/canvas-theme";
+import { comfyUIModelOptionLabel, isComfyUIModelOption, listComfyUIModelOptions } from "@/lib/canvas/comfyui-model-option";
 import { compatibleModelInGroup, configuredModelDisplayName, groupModelsByDisplayName, modelCompatibilityError, resolveCompatibleModel, type ModelRequirements } from "@/lib/model-selection";
 import { cn } from "@/lib/utils";
 import { modelDisplayName, modelIcon, modelOptionName, resolveModelChannel, selectableModelsByCapability, type AiConfig, type ModelCapability } from "@/stores/use-config-store";
@@ -50,6 +51,7 @@ export function ModelPicker({
     const menuRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const options = useMemo(() => Array.from(new Set(selectableModelsByCapability(config, capability).filter(Boolean))), [capability, config]);
+    const comfyUIOptions = useMemo(() => listComfyUIModelOptions(config, capability), [capability, config]);
     const optionGroups = useMemo(() => {
         const channelGroups = config.channels
             .map((channel) => ({
@@ -61,16 +63,31 @@ export function ModelPicker({
                 ),
             }))
             .filter((group) => group.models.length);
+        if (comfyUIOptions.length) {
+            channelGroups.push({
+                key: "__comfyui_local__",
+                label: "本机 ComfyUI",
+                models: comfyUIOptions.map((item) => ({
+                    key: item.value,
+                    label: item.label,
+                    models: [item.value],
+                })),
+            });
+        }
         // options 已由当前有效渠道重建；任何无法解析渠道的旧值都直接丢弃，
         // 不再显示“其他模型 / 未指定渠道”这种不可用入口。
         return channelGroups;
-    }, [config, options]);
+    }, [comfyUIOptions, config, options]);
+    const selectableValues = useMemo(
+        () => [...options, ...comfyUIOptions.map((item) => item.value)],
+        [comfyUIOptions, options],
+    );
     const storedCurrent = value?.trim() || "";
     // 参数档位会在选中模型后由调用方归一到其能力配置，不能因为旧模型留下的参数而禁止切换。
     const selectionRequirements = requirements ? { ...requirements, videoSeconds: undefined, imageSize: undefined, options: undefined } : undefined;
     const resolvedCurrent = resolveCompatibleModel(config, storedCurrent, selectionRequirements) || storedCurrent;
     // 旧画布可能保存过已下架或前端历史内置模型；它们不能重新进入当前可选目录。
-    const current = options.includes(resolvedCurrent) ? resolvedCurrent : "";
+    const current = selectableValues.includes(resolvedCurrent) ? resolvedCurrent : "";
     const portrait = seedancePortraitModel(current || storedCurrent);
     const portraitQuote = current ? resolveModelChannel(config, current).modelProfiles?.find((item) => item.model === modelOptionName(current))?.videoPricing : undefined;
     const priceLines = portraitPriceLines(portraitQuote);
@@ -111,10 +128,10 @@ export function ModelPicker({
     }, [open]);
 
     const setPickerOpen = (nextOpen: boolean) => {
-        if (nextOpen && !options.length) onMissingConfig?.();
+        if (nextOpen && !selectableValues.length) onMissingConfig?.();
         if (nextOpen) window.dispatchEvent(new CustomEvent("model-picker-open", { detail: pickerId }));
         if (nextOpen) {
-            setPreviewedModel(current || options[0] || "");
+            setPreviewedModel(current || selectableValues[0] || "");
             setActiveGroupKey(null);
         }
         setOpen(nextOpen);
@@ -289,6 +306,7 @@ export function ModelPicker({
 
 function emptyModelLabel(config: AiConfig, capability?: ModelCapability) {
     const label = capability === "image" ? "生图" : capability === "video" ? "视频" : capability === "text" ? "文本" : capability === "audio" ? "音频" : "";
+    if (listComfyUIModelOptions(config, capability).length) return `暂无支持当前输入的${label}模型`;
     if (capability && config.models.length) return `暂无支持当前输入的${label}模型`;
     return config.models.length ? `暂无匹配的${label}模型` : "当前没有可用模型，请联系管理员或检查模型配置";
 }
@@ -312,10 +330,15 @@ function ModelLabel({
 }
 
 function pickerModelDisplayName(config: AiConfig, model: string, showConfiguredModelName: boolean) {
+    if (isComfyUIModelOption(model)) return comfyUIModelOptionLabel(config, model) || model;
     return showConfiguredModelName ? configuredModelDisplayName(config, model) : modelDisplayName(config, model);
 }
 
 function pickerModelOptionLabel(config: AiConfig, model: string, showConfiguredModelName: boolean) {
+    if (isComfyUIModelOption(model)) {
+        const label = comfyUIModelOptionLabel(config, model) || model;
+        return `${label}（本机 ComfyUI）`;
+    }
     const displayName = showConfiguredModelName ? configuredModelDisplayName(config, model) : modelDisplayName(config, model);
     const channel = resolveModelChannel(config, model);
     return channel.scope === "system" ? displayName : `${displayName}（${channel.name}）`;

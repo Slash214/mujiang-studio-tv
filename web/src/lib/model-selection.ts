@@ -3,6 +3,7 @@ import { normalizeVideoBoolean, normalizeVideoResolutionValue, videoResolutionCo
 import { imageSizePresets } from "@/lib/image-size-presets";
 import { sanitizeVideoPriceQuote, seedancePortraitLabel, seedancePortraitModel } from "@/lib/seedance-portrait";
 import { channelModelProfile, modelOptionName, normalizeModelOptionValue, resolveModelChannel, selectableModelsByCapability, type AiConfig, type ModelCapability } from "@/stores/use-config-store";
+import { isComfyUIModelOption } from "@/lib/canvas/comfyui-model-option";
 
 export type ModelInputSummary = {
     textCount: number;
@@ -71,6 +72,7 @@ export function portraitGenerationError(config: AiConfig, model: string, resolut
 }
 
 export function modelCompatibilityError(config: AiConfig, model: string, requirements?: ModelRequirements) {
+    if (isComfyUIModelOption(model)) return "";
     const capability = requirements?.capability;
     if (!capability) return "";
     const input = requirements?.input;
@@ -226,6 +228,7 @@ export function compatibleModelInGroup(config: AiConfig, models: string[], requi
 }
 
 export function resolveCompatibleModel(config: AiConfig, selected: string, requirements?: ModelRequirements) {
+    if (isComfyUIModelOption(selected)) return selected;
     if (!requirements?.capability) return selected;
     // Automatic resolution keeps the saved identity. Explicit menu selection
     // may choose the usable canonical entry and refresh its parameters/quote.

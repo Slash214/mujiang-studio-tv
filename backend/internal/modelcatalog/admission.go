@@ -298,7 +298,7 @@ func TaskInputUsesWorkflowProvider(input map[string]any) bool {
 
 func IsWorkflowInterfaceType(value string) bool {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case string(model.ChannelInterfaceRunningHubImage), string(model.ChannelInterfaceRunningHubVideo), string(model.ChannelInterfaceRunningHubAudio):
+	case string(model.ChannelInterfaceRunningHubImage), string(model.ChannelInterfaceRunningHubVideo), string(model.ChannelInterfaceRunningHubAudio), string(model.ChannelInterfaceComfyUILocalImage), string(model.ChannelInterfaceComfyUILocalVideo):
 		return true
 	default:
 		return false
@@ -312,6 +312,10 @@ func HasExecutableVideoConfig(input map[string]any) bool {
 		return false
 	}
 	interfaceType := admissionString(config["interfaceType"])
+	if strings.EqualFold(strings.TrimSpace(interfaceType), "comfyui-local-video") {
+		graph, _ := config["workflowJson"].(map[string]any)
+		return admissionString(config["baseUrl"]) != "" && len(graph) > 0
+	}
 	if IsWorkflowInterfaceType(interfaceType) {
 		if admissionString(config["workflowId"]) == "" && admissionString(config["webappId"]) == "" && admissionString(config["model"]) == "" {
 			return false

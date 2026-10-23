@@ -4,8 +4,10 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type Keyboard
 import { ArrowLeftRight, ArrowUp, AtSign, Boxes, Camera, ChevronDown, FileText, GripVertical, ImageIcon, ImagePlus, Link2, LoaderCircle, Maximize2, Music2, Pencil, SlidersHorizontal, UserRound, Video, WandSparkles, X } from "lucide-react";
 
 import { ModelPicker } from "@/components/model-picker";
-import { modelOptionName, resolveModelChannel, selectableModelsByCapability, useEffectiveConfig, type AiConfig } from "@/stores/use-config-store";
+import { channelHasGenerationCredential, modelOptionName, resolveModelChannel, selectableModelsByCapability, useEffectiveConfig, type AiConfig } from "@/stores/use-config-store";
 import { buildGenerationConfig as buildNodeConfig, buildCanvasGenerationRequirements } from "@/lib/canvas/canvas-generation-config";
+import { defaultComfyUIModelOption, encodeComfyUIModelOption, isComfyUIModelOption, listComfyUIModelOptions, parseComfyUIModelOption } from "@/lib/canvas/comfyui-model-option";
+import { resolveCanvasWorkflowProvider } from "@/lib/canvas/canvas-workflow";
 import { clampPromptEditorModalSize, PROMPT_EDITOR_VIEWPORT_MARGIN } from "@/lib/canvas/canvas-prompt-editor-size";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { modelRequestOptions, defaultImageParamsForModel, type ModelRequirements } from "@/lib/model-selection";
@@ -110,6 +112,25 @@ export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChan
     });
     const config = buildNodeConfig(globalConfig, node, mode, requirements);
     const availableModels = selectableModelsByCapability(config, mode);
+    const hasSelectableModels = availableModels.length > 0 || listComfyUIModelOptions(globalConfig, mode).length > 0;
+    const pickerModelValue = resolveNodeModelPickerValue(globalConfig, node, mode, config.model);
+    // 下拉已默认到本机 ComfyUI 时，把工作流写回节点元数据，生成路径不再误判成云端模型而去跳设置。
+    useEffect(() => {
+        if (mode === "text" || mode === "audio") return;
+        const workflowId = parseComfyUIModelOption(pickerModelValue);
+        if (!workflowId) return;
+        if (node.metadata?.workflowProvider === "comfyui" && node.metadata?.comfyUIWorkflowId?.trim() === workflowId) return;
+        if (node.metadata?.model?.trim() && resolveCanvasWorkflowProvider(node.metadata) === "model") return;
+        onConfigChange(node.id, {
+            model: undefined,
+            workflowProvider: "comfyui",
+            workflowTitle: "本机 ComfyUI",
+            comfyUIWorkflowId: workflowId,
+            runningHubWorkflowId: undefined,
+            runningHubWorkflowKind: undefined,
+            workflowParameters: node.metadata?.workflowParameters || {},
+        });
+    }, [mode, node.id, node.metadata?.comfyUIWorkflowId, node.metadata?.model, node.metadata?.workflowParameters, node.metadata?.workflowProvider, onConfigChange, pickerModelValue]);
     const resolvedRequirements: ModelRequirements = {
         ...requirements,
         options: modelRequestOptions(config, mode),
@@ -350,19 +371,45 @@ export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChan
         ) : (
             <div className="canvas-node-composer-footer">
                 <div className={expanded ? "min-w-0 flex-1" : "canvas-node-composer-model"}>
-                    {availableModels.length ? (
-                        <ModelPicker
-                            className="!h-7 !w-full !min-w-0 !text-[var(--fs-tiny)] !font-normal [&_img]:!size-3 [&_.lucide]:!size-3"
-                            fullWidth
-                            config={config}
-                            value={config.model}
-                            onChange={(model) => onConfigChange(node.id, mode === "image" ? { model, ...defaultImageParamsForModel(config, model) } : { model })}
-                            capability={mode}
-                            requirements={resolvedRequirements}
-                            onMissingConfig={() => navigateToSettings({ section: "channels", continueCreation: true })}
-                            variant="creation"
-                            showConfiguredModelName
-                        />
+                    {hasSelectableModels ? (
+                    <ModelPicker
+                        className="!h-7 !w-full !min-w-0 !text-[var(--fs-tiny)] !font-normal [&_img]:!size-3 [&_.lucide]:!size-3"
+                        fullWidth
+                        config={config}
+                        value={pickerModelValue}
+                        onChange={(model) => {
+                            const workflowId = parseComfyUIModelOption(model);
+                            if (workflowId) {
+                                onConfigChange(node.id, {
+                                    model: undefined,
+                                    workflowProvider: "comfyui",
+                                    workflowTitle: "本机 ComfyUI",
+                                    comfyUIWorkflowId: workflowId,
+                                    runningHubWorkflowId: undefined,
+                                    runningHubWorkflowKind: undefined,
+                                    workflowParameters: {},
+                                });
+                                return;
+                            }
+                            onConfigChange(node.id, {
+                                ...(mode === "image" ? { model, ...defaultImageParamsForModel(config, model) } : { model }),
+                                workflowProvider: "model",
+                                workflowTitle: undefined,
+                                comfyUIWorkflowId: undefined,
+                                runningHubWorkflowId: undefined,
+                                runningHubWorkflowKind: undefined,
+                                workflowParameters: {},
+                            });
+                        }}
+                        capability={mode}
+                        requirements={resolvedRequirements}
+                        onMissingConfig={() => {
+                            if (listComfyUIModelOptions(globalConfig, mode).length) return;
+                            navigateToSettings({ section: "channels", continueCreation: true });
+                        }}
+                        variant="creation"
+                        showConfiguredModelName
+                    />
                     ) : (
                         <button
                             type="button"
@@ -1064,6 +1111,28 @@ function defaultMode(type: CanvasNodeData["type"]): CanvasNodeGenerationMode {
 }
 
 export { buildNodeConfig };
+
+function cloudGenerationModelReady(config: AiConfig, model: string | undefined) {
+    const trimmed = model?.trim() || "";
+    if (!trimmed || isComfyUIModelOption(trimmed)) return false;
+    const channel = resolveModelChannel(config, trimmed);
+    return Boolean(channel?.baseUrl?.trim() && channelHasGenerationCredential(channel));
+}
+
+function resolveNodeModelPickerValue(globalConfig: AiConfig, node: CanvasNodeData, mode: CanvasNodeGenerationMode, fallbackModel: string) {
+    if (mode === "text" || mode === "audio") return fallbackModel;
+    const provider = resolveCanvasWorkflowProvider(node.metadata);
+    if (provider === "comfyui") {
+        const workflowId = node.metadata?.comfyUIWorkflowId?.trim();
+        if (workflowId) return encodeComfyUIModelOption(workflowId);
+        return defaultComfyUIModelOption(globalConfig, mode) || fallbackModel;
+    }
+    // 节点已显式选过云端模型时保持该选择。
+    if (node.metadata?.model?.trim()) return fallbackModel;
+    // 全局默认视频/图片模型往往只是占位字符串；无可用凭据时改露本机 ComfyUI，避免下拉空态或点进去跳设置。
+    if (cloudGenerationModelReady(globalConfig, fallbackModel)) return fallbackModel;
+    return defaultComfyUIModelOption(globalConfig, mode) || fallbackModel;
+}
 
 function promptPlaceholder(mode: CanvasNodeGenerationMode, hasImageContent: boolean, hasTextContent: boolean) {
     if (mode === "video") return "描述你想要生成的画面内容，@引用素材";

@@ -18,6 +18,9 @@ func TestTaskInputUsesWorkflowProvider(t *testing.T) {
 		want  bool
 	}{
 		{name: "runninghub workflow", input: map[string]any{"config": map[string]any{"interfaceType": "runninghub-workflow-video"}}, want: true},
+		{name: "comfyui image", input: map[string]any{"config": map[string]any{"interfaceType": "comfyui-local-image"}}, want: true},
+		{name: "comfyui video", input: map[string]any{"config": map[string]any{"interfaceType": "ComfyUI-Local-Video"}}, want: true},
+		{name: "system channel cannot forge comfyui", input: map[string]any{"config": map[string]any{"interfaceType": "comfyui-local-image", "channelId": "system-1"}}, want: false},
 		{name: "case insensitive", input: map[string]any{"config": map[string]any{"interfaceType": "RunningHub-Workflow-Audio"}}, want: true},
 		{name: "ordinary model", input: map[string]any{"config": map[string]any{"interfaceType": "openai-image", "channelId": "system-1", "model": "image-model"}}, want: false},
 		{name: "system channel cannot forge workflow", input: map[string]any{"config": map[string]any{"interfaceType": "runninghub-workflow-image", "channelId": "system-1"}}, want: false},
@@ -326,6 +329,14 @@ func TestSelectTaskModelUsesRenamedUpstreamKey(t *testing.T) {
 }
 
 func TestHasExecutableVideoConfig(t *testing.T) {
+	local := map[string]any{"interfaceType": "comfyui-local-video", "baseUrl": "http://127.0.0.1:8188", "workflowJson": map[string]any{"1": map[string]any{"class_type": "SaveVideo"}}}
+	if !HasExecutableVideoConfig(map[string]any{"mode": "video", "config": local}) {
+		t.Fatal("local workflow must not require a cloud API key")
+	}
+	delete(local, "workflowJson")
+	if HasExecutableVideoConfig(map[string]any{"mode": "video", "config": local}) {
+		t.Fatal("local workflow requires an API graph")
+	}
 	if HasExecutableVideoConfig(map[string]any{"mode": "image", "config": map[string]any{"model": "x", "channelId": "c"}}) {
 		t.Fatal("image mode is not an executable video config")
 	}

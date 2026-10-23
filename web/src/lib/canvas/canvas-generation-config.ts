@@ -1,4 +1,4 @@
-import { configuredModelMatchesCapability, defaultConfig, normalizeModelOptionValue, normalizeRunningHubCapability, type AiConfig, type WorkflowFieldMapping } from "@/stores/use-config-store";
+import { channelHasGenerationCredential, resolveModelChannel, configuredModelMatchesCapability, defaultConfig, normalizeModelOptionValue, normalizeRunningHubCapability, type AiConfig, type WorkflowFieldMapping } from "@/stores/use-config-store";
 import { resolveAudioSpeechSettings } from "@/lib/audio-generation";
 import { normalizeVideoDuration, normalizeVideoResolution } from "@/lib/video-generation-options";
 import { isH3Model, h3VideoOperation } from "@/lib/h3-video";
@@ -6,7 +6,8 @@ import { seedancePortraitModel } from "@/lib/seedance-portrait";
 import { workflowFieldCurrentValue, workflowFieldHasStoredValue, workflowFieldKey, workflowFieldRandomKey, workflowFieldSubmissionValue, workflowOutputSizeValue, workflowVideoFieldsFromJson } from "@/lib/model-capabilities";
 import { modelRequestOptions, resolveCompatibleModel, resolveModelGenerationDefaults, type ModelGenerationDefaults, type ModelInputSummary, type ModelRequirements } from "@/lib/model-selection";
 import { resolveCanvasWorkflowProvider } from "@/lib/canvas/canvas-workflow";
-import { CanvasNodeType, type CanvasGenerationMode, type CanvasNodeData } from "@/types/canvas";
+import { pickComfyUIWorkflowForSlot, resolveWorkflowUsageSlot } from "@/lib/canvas/workflow-usage-slot";
+import { type CanvasGenerationMode, type CanvasNodeData } from "@/types/canvas";
 
 // Preview counts may reserve character images; resolved counts contain the actual
 // representations. Callers choose their input summary for each validation stage.
@@ -41,20 +42,74 @@ export function resolvedCanvasGenerationRequirements(config: AiConfig, node: Can
 }
 
 export function buildGenerationConfig(config: AiConfig, node: CanvasNodeData | undefined, mode: CanvasGenerationMode, requirements?: ModelRequirements): AiConfig {
-    // 只有独立 Config 节点读取工作流元数据；普通图片/视频/音频节点始终按基础模型生成。
-    const workflowProvider = mode !== "text" && node?.type === CanvasNodeType.Config && resolveCanvasWorkflowProvider(node.metadata) === "runninghub" ? "runninghub" : "model";
+    // Config / 图片 / 视频 / 音频节点都可读工作流元数据；文本仍只走渠道模型。
+    const resolvedProvider = mode !== "text" ? resolveCanvasWorkflowProvider(node?.metadata) : "model";
+    let workflowProvider: "model" | "runninghub" | "comfyui" = resolvedProvider === "runninghub" || resolvedProvider === "comfyui" ? resolvedProvider : "model";
     const defaultModel = mode === "image" ? config.imageModel : mode === "video" ? config.videoModel : mode === "audio" ? config.audioModel : config.textModel;
     const fallbackModel = mode === "image" ? defaultConfig.imageModel : mode === "video" ? defaultConfig.videoModel : mode === "audio" ? defaultConfig.audioModel : defaultConfig.textModel;
     const storedModel = resolveCanvasGenerationModel(config, node?.metadata?.model, mode);
     const preferredModel = storedModel || resolveCanvasGenerationModel(config, defaultModel, mode) || fallbackModel;
+    // 节点未显式选渠道模型、且本机 ComfyUI 已启用并有对应工作流时，直接走本机生成，避免视频下拉空态只能跳设置。
+    if (workflowProvider === "model" && (mode === "image" || mode === "video") && !node?.metadata?.model?.trim()) {
+        const cloudModel = preferredModel.trim();
+        const cloudChannel = cloudModel ? resolveModelChannel(config, cloudModel) : null;
+        const cloudReady = Boolean(cloudChannel?.baseUrl?.trim() && cloudChannel && channelHasGenerationCredential(cloudChannel));
+        const slot = resolveWorkflowUsageSlot({
+            mode,
+            generationType: node?.metadata?.generationType,
+            videoEditOperation: node?.metadata?.videoEditOperation,
+            referenceImageCount: requirements?.input?.imageCount,
+            referenceVideoCount: requirements?.input?.videoCount,
+        });
+        const localWorkflow = config.comfyUI.enabled && config.comfyUI.baseUrl.trim()
+            ? (node?.metadata?.comfyUIWorkflowId?.trim()
+                ? config.comfyUI.workflows.find((item) => item.workflowId.trim() === node.metadata?.comfyUIWorkflowId?.trim())
+                : pickComfyUIWorkflowForSlot(config.comfyUI, slot))
+            : undefined;
+        if (!cloudReady && localWorkflow?.workflowId?.trim() && localWorkflow.workflowJson && Object.keys(localWorkflow.workflowJson).length) {
+            workflowProvider = "comfyui";
+        }
+    }
     // 先合并节点上的实时选择，再做兼容性匹配。否则路由只看到全局默认值，节点改过的时长、分辨率或布尔能力无法参与分流。
     const workflowParameters = node?.metadata?.workflowParameters || {};
+    const slot = workflowProvider === "comfyui"
+        ? resolveWorkflowUsageSlot({
+            mode,
+            generationType: node?.metadata?.generationType,
+            videoEditOperation: node?.metadata?.videoEditOperation,
+            referenceImageCount: requirements?.input?.imageCount,
+            referenceVideoCount: requirements?.input?.videoCount,
+        })
+        : undefined;
     const runningHubWorkflowId = node?.metadata?.runningHubWorkflowId?.trim() || config.runningHub.workflowId.trim();
-    const selectedRunningHubWorkflow =
-        workflowProvider === "runninghub"
-            ? config.runningHub.workflows.find((item) => item.workflowId.trim() === runningHubWorkflowId && (!node?.metadata?.runningHubWorkflowKind || (item.kind === "app" ? "app" : "workflow") === node.metadata.runningHubWorkflowKind))
-            : undefined;
-    const selectedWorkflowFields = workflowProvider === "runninghub" ? (selectedRunningHubWorkflow?.fields?.length ? selectedRunningHubWorkflow.fields : workflowVideoFieldsFromJson(selectedRunningHubWorkflow?.workflowJson)) : [];
+    const nodeComfyUIWorkflowId = node?.metadata?.comfyUIWorkflowId?.trim() || "";
+    const nodeComfyUIWorkflow = nodeComfyUIWorkflowId
+        ? config.comfyUI.workflows.find((item) => item.workflowId.trim() === nodeComfyUIWorkflowId)
+        : undefined;
+    const nodeComfyUISlot = nodeComfyUIWorkflow?.usageSlot;
+    const slotDefaultId = slot ? String(config.comfyUI.defaultWorkflows?.[slot] || "").trim() : "";
+    const shouldPreferSlotDefault = Boolean(
+        slot
+        && slotDefaultId
+        && (!nodeComfyUIWorkflowId || (nodeComfyUISlot && nodeComfyUISlot !== slot)),
+    );
+    const pickedComfyUI = workflowProvider === "comfyui"
+        ? (shouldPreferSlotDefault ? pickComfyUIWorkflowForSlot(config.comfyUI, slot) : undefined)
+            || (nodeComfyUIWorkflowId ? nodeComfyUIWorkflow : undefined)
+            || pickComfyUIWorkflowForSlot(config.comfyUI, slot)
+        : undefined;
+    const comfyUIWorkflowId = pickedComfyUI?.workflowId?.trim() || nodeComfyUIWorkflowId || config.comfyUI.workflowId.trim();
+    const selectedRunningHubWorkflow = workflowProvider === "runninghub"
+        ? config.runningHub.workflows.find((item) => item.workflowId.trim() === runningHubWorkflowId && (!node?.metadata?.runningHubWorkflowKind || (item.kind === "app" ? "app" : "workflow") === node.metadata.runningHubWorkflowKind))
+        : undefined;
+    const selectedComfyUIWorkflow = workflowProvider === "comfyui"
+        ? config.comfyUI.workflows.find((item) => item.workflowId.trim() === comfyUIWorkflowId)
+        : undefined;
+    const selectedWorkflowFields = workflowProvider === "runninghub"
+        ? selectedRunningHubWorkflow?.fields?.length ? selectedRunningHubWorkflow.fields : workflowVideoFieldsFromJson(selectedRunningHubWorkflow?.workflowJson)
+        : workflowProvider === "comfyui"
+          ? selectedComfyUIWorkflow?.fields?.length ? selectedComfyUIWorkflow.fields : workflowVideoFieldsFromJson(selectedComfyUIWorkflow?.workflowJson)
+          : [];
     const workflowOutputSize = workflowProvider === "model" ? "" : workflowOutputSizeValue(selectedWorkflowFields, workflowParameters);
     const workflowParameterValue = (source: string) => {
         const value = workflowParameters[`source:${source}`];
@@ -142,10 +197,23 @@ export function buildGenerationConfig(config: AiConfig, node: CanvasNodeData | u
                   )
                 : config.runningHub.workflows,
     };
+    const comfyUICapability = normalizeRunningHubCapability(selectedComfyUIWorkflow?.capability, normalizeRunningHubCapability(config.comfyUI.capability));
+    const comfyUI = {
+        ...config.comfyUI,
+        enabled: workflowProvider === "comfyui" && config.comfyUI.enabled,
+        workflowId: comfyUIWorkflowId,
+        capability: comfyUICapability,
+        workflows: workflowProvider === "comfyui"
+            ? config.comfyUI.workflows.map((item) => item.workflowId.trim() === comfyUIWorkflowId
+                ? { ...item, fields: applyWorkflowParameterValues(item.fields?.length ? item.fields : workflowVideoFieldsFromJson(item.workflowJson) as WorkflowFieldMapping[], workflowParameters) }
+                : item)
+            : config.comfyUI.workflows,
+    };
     return {
         ...requestedConfig,
         taskWorkflowProvider: workflowProvider,
         runningHub,
+        comfyUI,
         model,
         quality: generationDefaults.quality || requestedConfig.quality,
         size: generationDefaults.size ?? requestedConfig.size,
@@ -190,4 +258,3 @@ function applyWorkflowParameterValues(fields: WorkflowFieldMapping[] | undefined
         };
     });
 }
-

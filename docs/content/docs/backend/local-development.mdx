@@ -16,14 +16,21 @@ description: 在宿主机启动BeefTV前后端开发服务
 脚本会：
 
 - 使用 `.local/project-workbench-debug` 作为后端 SQLite 开发数据目录；
-- 创建 `.local/cache/go-build` 和 `.local/cache/go-mod` 缓存目录；
+- 检查 Go、Bun、Node.js 和编译 SQLite 所需的 GCC，并尝试识别 D 盘的便携工具链；
+- 将 Go 构建缓存、模块缓存、临时文件和 GOPATH 放在 `.local/cache` 下；
 - 首次启动时，如果 `web/node_modules` 不存在，执行 `bun install --frozen-lockfile`；
-- 打开两个 PowerShell 窗口，分别运行后端和前端；
-- 将前端 `/api` 请求代理到 `http://127.0.0.1:8080`。
+- 在后台运行后端和前端，日志及启动进程 ID 写入 `.local/logs`；
+- 将前端 `/api` 请求代理到 `http://127.0.0.1:18080`。
 
-启动后访问 [http://localhost:3000](http://localhost:3000)。后端健康检查地址是 [http://127.0.0.1:8080/api/health](http://127.0.0.1:8080/api/health)。
+脚本还会编译后端及配套 `cli/beeftv.exe` 到 `.local/runtime`，安装锁定版本的 `agent-host` 依赖，并在没有现有配置时创建开发数据目录下的 `agent_config.json`，使用 Node.js 运行源码中的 Agent 宿主。已有配置保留，不自动覆盖。
 
-脚本使用固定的本地开发端口：前端 `3000`，后端 `8080`。如果端口被占用，脚本会先退出，不会关闭已有进程。请分别在两个开发窗口中按 `Ctrl+C` 停止服务。
+这一启动方式启用与桌面版相同的运行时和鉴权，不要求先打包 Wails。`CANVAS_DEV_SESSION_FILE` 必须指向数据目录内的 `dev-session.json`，且后端必须监听回环地址。Vite 通过 `BEEFTV_DEV_SESSION_FILE` 在服务端读取临时凭据，只为本机同源 API 请求附加凭据；`.local` 不允许通过 Vite 文件服务访问。正常退出删除会话文件，异常退出后的旧文件在下次启动前移除。不要分享会话文件，也不要将这个开发代理暴露到公网。
+
+外部 Agent 页面提供客户端接入配置，并不负责安装或运行 Codex、Cursor 等应用。画布助手还需要有效的文本模型配置；宿主就绪不等于已通过付费模型验收。
+
+启动后访问 [http://localhost:13000](http://localhost:13000)。通过开发代理检查健康状态：[http://localhost:13000/api/health/live](http://localhost:13000/api/health/live)。后端直接访问需要启动凭据。首次编译期间后端可能尚未就绪，可查看 `.local/logs/backend.stderr.log`。
+
+脚本仅监听本机，使用固定端口：前端 `13000`，后端 `18080`。如果端口被占用，脚本会先退出，不会关闭已有进程。停止服务时，先核对 `.local/logs/local-processes.json` 中记录的启动进程仍属于本次开发会话，再结束对应进程树；不要按进程名批量结束其他 Go 或 Bun 服务。
 
 如果 PowerShell 的执行策略阻止脚本运行，可以只对当前进程临时放行：
 
@@ -131,6 +138,22 @@ curl -s -X POST http://127.0.0.1:8082/inference \
 构建发行包前必须设置 `BEEFTV_NODE_RUNTIME`：macOS 指向包含 `bin/node` 的官方 Node 目录，Windows 指向包含 `node.exe` 的官方 Node 目录。运行时版本、平台或架构不匹配都会终止构建；macOS 还会拒绝依赖 Homebrew 等非系统动态库的 Node。GitHub Actions 为每个平台准备固定版本运行时。
 
 打包脚本在临时目录使用 Bun 和 `agent-host/bun.lock` 安装冻结的 production 依赖，再以随包 Node 验证 SDK 导入。它不会复制开发目录中的 `node_modules`，也不会在缺少运行时时回退到系统 Node。两个发行入口分别为 `scripts/build-beeftv-release.sh` 和 `scripts/build-beeftv-windows-release.ps1`。
+
+## 本机 ComfyUI 工作流
+
+### Qwen Image 2.1 图片工作流
+
+`scripts/prepare-qwen-image-workflows.mjs` 接收文生图 API JSON、图片编辑子图 JSON 和一个新的输出目录，保留原文件并生成用于接入的 API JSON 与字段映射。脚本不保存工作区配置，也不提交生成任务；安装时应使用带 `expectedRevision` 的工作区模型配置接口，仅追加条目，保留既有工作流及默认绑定。
+
+文生图通过画幅与像素量选择输出尺寸。图片编辑以第一张图为底图，支持至多十张图片，提示词使用 `<image1>`、`<image2>` 标明各图用途；默认按第一张图尺寸执行，只有开启“自定义尺寸”后才使用自定义宽高。参考图缩放值为 0 时保持输入尺寸并按模型要求对齐，超大图片应主动选择缩放值。该编辑工作流没有蒙版重绘输入。
+
+接入版本保持源文件选定的 INT8 主模型、INT8 编码器、BF16 VAE 和采样参数；将关闭的提示词扩写分支内联为直接提示词输入。编辑模板扩展空白参考槽位，每次提交仅保留实际传入的图片及对应连线，未连接槽位不会使用模板示例图片。原始工作流不受裁剪影响。原生 ComfyUI 参数覆盖保留数字、布尔值及字符串的类型，避免把字符串 `"false"` 当作打开开关。
+
+字段与任务参数验证不等于实际生成验收；画面质量、耗时及人物一致性需要另行生成样片确认。
+
+本机图片和视频任务分别使用 `comfyui-local-image`、`comfyui-local-video` 接口类型，由任务准入和工作流执行器共同识别。配置需要 ComfyUI 地址及非空的 API 格式 `workflowJson`，不要求云端 API Key。普通编辑器工作流需先在 ComfyUI 中导出为 API 格式。
+
+ComfyUI 地址仍受上游地址校验约束。本机或局域网部署需通过 `CANVAS_ALLOWED_PRIVATE_UPSTREAM_HOSTS` 精确放行实际主机；配置保存成功不代表服务已启动或模型、节点已齐全。联调时应分别验证图片与视频任务成功、资源可读取，以及结果已绑定到画布节点。
 
 ## Docker 开发
 

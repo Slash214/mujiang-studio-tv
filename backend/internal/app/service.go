@@ -22,6 +22,7 @@ import (
 	"infinite-canvas/backend/internal/model"
 	"infinite-canvas/backend/internal/modelcatalog"
 	"infinite-canvas/backend/internal/operations"
+	"infinite-canvas/backend/internal/outbound"
 	"infinite-canvas/backend/internal/platform"
 	"infinite-canvas/backend/internal/playback"
 	"infinite-canvas/backend/internal/plugins"
@@ -132,6 +133,7 @@ func New(repo *repository.Repository, dataDir string) *Service {
 // NewLocal is the desktop constructor. It keeps local protocol plugins
 // available for generation workflows.
 func NewLocal(repo *repository.Repository, dataDir string) *Service {
+	outbound.AllowPrivateUpstreamHosts("127.0.0.1", "localhost")
 	return newService(repo, dataDir, serviceOptions{mode: serviceModeLocal})
 }
 

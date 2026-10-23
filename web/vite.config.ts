@@ -7,6 +7,7 @@ import { defineConfig, type Plugin } from "vite";
 
 import { resolveHeavyMediaEnabled } from "./media-build-mode";
 import { distributionNotices } from "../scripts/distribution-notices.mjs";
+import { desktopDevelopmentGuard, readDesktopDevelopmentSession } from "./dev-desktop-proxy.mjs";
 
 const webDir = dirname(fileURLToPath(import.meta.url));
 const appVersion = process.env.CANVAS_BUILD_VERSION?.trim() || readFileSync(resolve(webDir, "../VERSION"), "utf8").trim();
@@ -16,7 +17,8 @@ const buildCommit = (() => {
     try { return execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: webDir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); }
     catch { return "unknown"; }
 })();
-const apiProxyTarget = process.env.VITE_API_PROXY_TARGET?.trim() || "http://127.0.0.1:8080";
+const devSession = readDesktopDevelopmentSession(process.env.BEEFTV_DEV_SESSION_FILE);
+const apiProxyTarget = devSession ? new URL(devSession.baseURL).origin : process.env.VITE_API_PROXY_TARGET?.trim() || "http://127.0.0.1:18080";
 const desktopLaunchToken = process.env.VITE_DESKTOP_LAUNCH_TOKEN?.trim();
 const heavyMediaEnabled = resolveHeavyMediaEnabled(process.env.BEEFTV_FULL_MEDIA_RESOURCES);
 
@@ -67,7 +69,7 @@ function licenseNoticesPlugin(): Plugin {
 }
 
 export default defineConfig({
-    plugins: [react(), pruneOptionalMediaPlugin(), licenseNoticesPlugin()],
+    plugins: [react(), pruneOptionalMediaPlugin(), licenseNoticesPlugin(), ...(devSession ? [desktopDevelopmentGuard()] : [])],
     define: {
         __APP_VERSION__: JSON.stringify(appVersion),
         __BEEFTV_HEAVY_MEDIA_ENABLED__: JSON.stringify(heavyMediaEnabled),
@@ -75,12 +77,14 @@ export default defineConfig({
         "import.meta.env.VITE_BUILD_COMMIT": JSON.stringify(buildCommit),
     },
     server: {
+        fs: { deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/**", "**/.local/**"] },
         proxy: {
             "/api": {
                 target: apiProxyTarget,
-                changeOrigin: true,
+                changeOrigin: !devSession,
                 xfwd: true,
-                ...(desktopLaunchToken ? { headers: { "X-Desktop-Token": desktopLaunchToken } } : {}),
+                ...(devSession ? { headers: { "X-Desktop-Token": devSession.launchToken, "X-Beeftv-UI-Bootstrap": devSession.uiBootstrapToken } }
+                    : desktopLaunchToken ? { headers: { "X-Desktop-Token": desktopLaunchToken } } : {}),
             },
         },
     },

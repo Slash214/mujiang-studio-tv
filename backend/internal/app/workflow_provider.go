@@ -19,14 +19,32 @@ func isRunningHubInterface(value string) bool {
 }
 
 func isWorkflowProviderInterface(value string) bool {
-	return isRunningHubInterface(value)
+	return isRunningHubInterface(value) || isComfyUILocalInterface(value)
 }
 
 func validateWorkflowProviderConfig(mode string, config providerConfig) error {
+	if isComfyUILocalInterface(config.InterfaceType) {
+		if mode == "audio" {
+			return errors.New("本机 ComfyUI 暂不支持音频工作流")
+		}
+		if mode != "image" && mode != "video" {
+			return errors.New("本机 ComfyUI 暂不支持当前生成类型")
+		}
+		if _, err := ValidateOutboundURL(comfyUILocalRootURL(config.BaseURL)); err != nil {
+			return err
+		}
+		if len(config.WorkflowJSON) == 0 && strings.TrimSpace(config.WorkflowID) == "" {
+			return errors.New("本机 ComfyUI 缺少 workflowJson（请导入 API 格式工作流）")
+		}
+		return nil
+	}
 	return mapOutboundError(workflow.ValidateConfig(mode, workflowConfigFromProvider(config)))
 }
 
 func (s *Service) runWorkflowProviderTask(ctx context.Context, input canvasGenerationInput) (map[string]interface{}, error) {
+	if isComfyUILocalInterface(input.Config.InterfaceType) {
+		return s.runComfyUILocalWorkflow(ctx, input)
+	}
 	if isRunningHubInterface(input.Config.InterfaceType) {
 		return s.runRunningHubWorkflow(ctx, input)
 	}

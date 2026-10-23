@@ -17,6 +17,7 @@ import { confirmDesktopUpdateStartup } from "@/services/desktop-update-startup";
 import { runStartupEnvironmentCheck } from "@/services/diagnostics/environment-startup";
 import { getDesktopAppBinding } from "@/services/desktop-runtime";
 import { appHref } from "@/lib/app-routing";
+import { COMFYUI_LOCAL_PLUGIN_ID } from "@/lib/plugins/builtin/workflows";
 
 export function ClientRootInit({ children }: { children: ReactNode }) {
     const config = useConfigStore((state) => state.config);
@@ -84,6 +85,12 @@ export function ClientRootInit({ children }: { children: ReactNode }) {
         usePluginStore.getState().setRuntimeStatuses({});
         usePluginStore.getState().setPluginStates({});
     }, []);
+
+    useEffect(() => {
+        // 本地工作区跳过插件中心状态拉取；本机 ComfyUI 由后端 NewLocal 默认放行，前端同步标为可用。
+        if (!localMode) return;
+        setRuntimeStatuses({ [COMFYUI_LOCAL_PLUGIN_ID]: "enabled" });
+    }, [localMode, setRuntimeStatuses]);
 
     useEffect(() => {
         if (!userId || localMode || !pluginStoreHydrated) return;

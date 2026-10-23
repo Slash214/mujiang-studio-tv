@@ -30,6 +30,12 @@ func main() {
 
 func run(ctx context.Context) error {
 	dataDir := env("CANVAS_BACKEND_DATA_DIR", "data")
+	sessionFile := strings.TrimSpace(os.Getenv("CANVAS_DEV_SESSION_FILE"))
+	listenAddr := env("CANVAS_BACKEND_ADDR", bootstrap.DefaultServerListenAddr)
+	profile, err := developmentProfile(sessionFile, listenAddr, dataDir)
+	if err != nil {
+		return err
+	}
 	autoMigrate, err := envBool("CANVAS_AUTO_MIGRATE", true)
 	if err != nil {
 		return err
@@ -42,9 +48,8 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	listenAddr := env("CANVAS_BACKEND_ADDR", bootstrap.DefaultServerListenAddr)
 	runtime, err := bootstrap.Open(ctx, bootstrap.Config{
-		Profile:          bootstrap.ProfileServer,
+		Profile:          profile,
 		DataDir:          dataDir,
 		DatabaseDriver:   env("CANVAS_DATABASE_DRIVER", "sqlite"),
 		DatabaseURL:      os.Getenv("DATABASE_URL"),
@@ -59,6 +64,13 @@ func run(ctx context.Context) error {
 	if err := runtime.Start(); err != nil {
 		_ = runtime.Close(context.Background())
 		return err
+	}
+	if sessionFile != "" {
+		if err := writeDevelopmentSession(sessionFile, runtime); err != nil {
+			_ = runtime.Close(context.Background())
+			return err
+		}
+		defer os.Remove(sessionFile)
 	}
 	logServerListen(listenAddr)
 

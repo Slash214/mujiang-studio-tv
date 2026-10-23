@@ -116,7 +116,9 @@ export function inferProtocolCapabilityFromModel(model: string): ProtocolCapabil
         lower.includes("banana") ||
         lower.includes("midjourney") ||
         lower.includes("sdxl") ||
-        lower.includes("stable-diffusion")
+        lower.includes("stable-diffusion") ||
+        lower.includes("wanx") ||
+        /(?:^|[^a-z0-9])wan(?:\d+(?:\.\d+)*)?(?:[-_]?image|[-_]?img)/.test(lower)
     ) {
         return "image";
     }

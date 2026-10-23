@@ -20,6 +20,18 @@ export type ReferenceMediaTransport = Partial<Record<"image" | "video" | "audio"
 export type RunningHubCapability = "image" | "video" | "audio";
 export type RunningHubWorkflowKind = "workflow" | "app";
 
+/** 本机 ComfyUI 细分能力：同一 image/video 下再拆文生 / 参考 / 编辑等；视频对齐 MiniMax H3 Director task_type。 */
+export type WorkflowUsageSlot =
+    | "image_t2i"
+    | "image_ref"
+    | "image_edit"
+    | "video_t2v"
+    | "video_i2v"
+    | "video_fl2v"
+    | "video_r2v"
+    | "video_v2v"
+    | "video_rv2v";
+
 export type WorkflowFieldMapping = {
     id?: string;
     nodeId: string;
@@ -55,6 +67,62 @@ export function normalizeRunningHubCapability(value: unknown, fallback: RunningH
 
 export function normalizeRunningHubWorkflowKind(value: unknown): RunningHubWorkflowKind {
     return value === "app" ? "app" : "workflow";
+}
+
+const WORKFLOW_USAGE_SLOT_SET = new Set<WorkflowUsageSlot>([
+    "image_t2i",
+    "image_ref",
+    "image_edit",
+    "video_t2v",
+    "video_i2v",
+    "video_fl2v",
+    "video_r2v",
+    "video_v2v",
+    "video_rv2v",
+]);
+
+export function normalizePersistedUsageSlot(value: unknown, fallbackCapability: RunningHubCapability = "image"): WorkflowUsageSlot | undefined {
+    const raw = String(value || "").trim().toLowerCase();
+    if (raw === "video_ref" || raw === "r2v") return "video_r2v";
+    if (raw === "t2v") return "video_t2v";
+    if (raw === "i2v") return "video_i2v";
+    if (raw === "fl2v") return "video_fl2v";
+    if (raw === "v2v") return "video_v2v";
+    if (raw === "rv2v") return "video_rv2v";
+    if (WORKFLOW_USAGE_SLOT_SET.has(raw as WorkflowUsageSlot)) return raw as WorkflowUsageSlot;
+    if (raw === "video") return "video_t2v";
+    if (raw === "image") return "image_t2i";
+    if (fallbackCapability === "video") return "video_t2v";
+    if (fallbackCapability === "image") return "image_t2i";
+    return undefined;
+}
+
+function normalizeComfyUIDefaultWorkflows(
+    value: unknown,
+    workflows: RunningHubWorkflow[],
+): Partial<Record<WorkflowUsageSlot, string>> {
+    const knownIds = new Set(workflows.map((item) => item.workflowId.trim()).filter(Boolean));
+    const result: Partial<Record<WorkflowUsageSlot, string>> = {};
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+        for (const workflow of workflows) {
+            const slot = normalizePersistedUsageSlot(workflow.usageSlot, workflow.capability || "image");
+            if (!slot || result[slot]) continue;
+            result[slot] = workflow.workflowId.trim();
+        }
+        return result;
+    }
+    for (const [key, rawId] of Object.entries(value as Record<string, unknown>)) {
+        const slot = normalizePersistedUsageSlot(key);
+        const id = String(rawId || "").trim();
+        if (!slot || !id || !knownIds.has(id)) continue;
+        result[slot] = id;
+    }
+    for (const workflow of workflows) {
+        const slot = normalizePersistedUsageSlot(workflow.usageSlot, workflow.capability || "image");
+        if (!slot || result[slot]) continue;
+        result[slot] = workflow.workflowId.trim();
+    }
+    return result;
 }
 
 function normalizeWorkflowFieldSourceName(value: unknown, capability?: RunningHubCapability) {
@@ -277,6 +345,9 @@ export function mergeWorkflowFieldMappings(current: unknown, incoming: unknown, 
         policyKeys.forEach((key) => {
             if (Object.prototype.hasOwnProperty.call(source, key)) target[key] = source[key];
         });
+        // Explicit mappings may expose a native widget (e.g. Qwen custom_size)
+        // that cannot be classified from its generic field name.
+        if (previous.sourceAutomatic === false && previous.role) merged.role = previous.role;
         // 字段类型、枚举和数值范围属于上游协议。只有本次拉取未返回时，才沿用本地补充配置。
         if (!field.fieldType && previous.fieldType) merged.fieldType = previous.fieldType;
         if (!field.options?.length && previous.options?.length) {
@@ -287,7 +358,7 @@ export function mergeWorkflowFieldMappings(current: unknown, incoming: unknown, 
         if (field.max === undefined && previous.max !== undefined) merged.max = previous.max;
         if (field.step === undefined && previous.step !== undefined) merged.step = previous.step;
         // 首次获得角色信息时采用服务端的内部参数默认值；之后才保留用户明确的启用选择。
-        if (field.role === "internal" && previous.role !== "internal") merged.enabled = field.enabled;
+        if (field.role === "internal" && previous.role !== "internal" && previous.sourceAutomatic !== false) merged.enabled = field.enabled;
         if (field.safeToOverride === false) merged.enabled = false;
         return merged;
     });
@@ -315,6 +386,8 @@ function workflowFieldRange(value: unknown) {
 export type RunningHubWorkflow = {
     kind?: RunningHubWorkflowKind;
     capability?: RunningHubCapability;
+    /** 本机 ComfyUI：细分用途（文生图 / 参考图 / 编辑 / 文生视频等）。 */
+    usageSlot?: WorkflowUsageSlot;
     workflowId: string;
     webappId?: string;
     title?: string;
@@ -337,6 +410,17 @@ export type RunningHubConfig = {
     selectedKind: RunningHubWorkflowKind;
     workflowId: string;
     workflows: RunningHubWorkflow[];
+};
+
+/** 本机 ComfyUI：复用工作流字段映射，不走云端 RunningHub。 */
+export type ComfyUILocalConfig = {
+    enabled: boolean;
+    baseUrl: string;
+    capability: RunningHubCapability;
+    workflowId: string;
+    workflows: RunningHubWorkflow[];
+    /** 各能力槽位的默认工作流 ID。 */
+    defaultWorkflows?: Partial<Record<WorkflowUsageSlot, string>>;
 };
 
 export type WorkflowGraphPreview = {
@@ -396,8 +480,9 @@ export type AiConfig = {
     apiFormat: ApiCallFormat;
     channels: ModelChannel[];
     runningHub: RunningHubConfig;
+    comfyUI: ComfyUILocalConfig;
     /** 仅用于单次生成任务路由，不属于全局渠道启用状态。 */
-    taskWorkflowProvider?: "model" | "runninghub";
+    taskWorkflowProvider?: "model" | "runninghub" | "comfyui";
     model: string;
     imageModel: string;
     videoModel: string;
@@ -446,6 +531,7 @@ export const defaultConfig: AiConfig = {
     // 创作端模型目录只能来自后台公开逻辑模型和用户自定义渠道，不能内置供应商模型。
     channels: [],
     runningHub: { enabled: false, baseUrl: "https://www.runninghub.cn", apiKey: "", walletApiKey: "", uploadApiKey: "", useWallet: false, capability: "image", selectedKind: "workflow", workflowId: "", workflows: [] },
+    comfyUI: { enabled: false, baseUrl: "http://127.0.0.1:8188", capability: "image", workflowId: "", workflows: [], defaultWorkflows: {} },
     taskWorkflowProvider: "model",
     model: "",
     imageModel: "",
@@ -492,6 +578,10 @@ export type ConfigStoreSnapshot = {
 
 function isVideoModelName(model: string) {
     const value = modelOptionName(model).toLowerCase();
+    // wan2.x-image* 是生图模型；不要被通用 "wan" 视频启发式误伤。
+    if (/(^|[^a-z0-9])wan(?:\d+(?:\.\d+)*)?(?:[-_]?image|[-_]?img)/.test(value) || value.includes("wanx")) {
+        return false;
+    }
     return (
         value.includes("seedance") ||
         value.includes("video") ||
@@ -661,6 +751,17 @@ function isAiConfigReady(config: AiConfig, model: string) {
         const key = config.runningHub.apiKey;
         return Boolean(config.runningHub.enabled && config.runningHub.baseUrl.trim() && key.trim() && config.runningHub.workflowId.trim());
     }
+    if (config.taskWorkflowProvider === "comfyui") {
+        const workflowId = config.comfyUI.workflowId.trim();
+        const workflow = config.comfyUI.workflows.find((item) => item.workflowId.trim() === workflowId);
+        return Boolean(
+            config.comfyUI.enabled
+            && config.comfyUI.baseUrl.trim()
+            && workflowId
+            && workflow?.workflowJson
+            && Object.keys(workflow.workflowJson).length,
+        );
+    }
     const channel = resolveModelChannel(config, model);
     return Boolean(model.trim() && channel.baseUrl.trim() && channelHasGenerationCredential(channel, model));
 }
@@ -723,6 +824,7 @@ export function normalizeConfigSnapshot(snapshot: ConfigStoreSnapshot | undefine
     // 坏存储/旧版本快照可能是 undefined 或缺 config，兜底为 defaultConfig，保证渲染不崩溃
     const persistedConfig = (snapshot?.config || {}) as Partial<AiConfig>;
     const persistedRunningHub = persistedConfig.runningHub;
+    const persistedComfyUI = persistedConfig.comfyUI;
     const runningHubCapability = normalizeRunningHubCapability(persistedRunningHub?.capability, defaultConfig.runningHub.capability);
     const runningHubWorkflows = Array.isArray(persistedRunningHub?.workflows)
         ? persistedRunningHub.workflows
@@ -740,6 +842,25 @@ export function normalizeConfigSnapshot(snapshot: ConfigStoreSnapshot | undefine
         : [];
     const runningHubWorkflowID = String(persistedRunningHub?.workflowId || "").trim();
     const runningHubSelectedKind = persistedRunningHub?.selectedKind ? normalizeRunningHubWorkflowKind(persistedRunningHub.selectedKind) : normalizeRunningHubWorkflowKind(runningHubWorkflows.find((item) => item.workflowId === runningHubWorkflowID)?.kind);
+    const comfyUICapability = normalizeRunningHubCapability(persistedComfyUI?.capability, defaultConfig.comfyUI.capability);
+    const comfyUIWorkflows = Array.isArray(persistedComfyUI?.workflows)
+        ? persistedComfyUI.workflows
+              .filter((item): item is RunningHubWorkflow => Boolean(item && typeof item === "object" && String(item.workflowId || "").trim()))
+              .map((item) => {
+                  const capability = normalizeRunningHubCapability(item.capability, comfyUICapability);
+                  const usageSlot = normalizePersistedUsageSlot(item.usageSlot, capability);
+                  return {
+                      ...item,
+                      kind: "workflow" as const,
+                      workflowId: String(item.workflowId || "").trim(),
+                      capability,
+                      usageSlot,
+                      fields: normalizeSavedWorkflowFields(item, capability),
+                  };
+              })
+        : [];
+    const comfyUIWorkflowID = String(persistedComfyUI?.workflowId || "").trim();
+    const comfyUIDefaultWorkflows = normalizeComfyUIDefaultWorkflows(persistedComfyUI?.defaultWorkflows, comfyUIWorkflows);
     const config = {
         ...defaultConfig,
         ...persistedConfig,
@@ -757,6 +878,16 @@ export function normalizeConfigSnapshot(snapshot: ConfigStoreSnapshot | undefine
             selectedKind: runningHubSelectedKind,
             workflowId: runningHubWorkflowID,
             workflows: runningHubWorkflows,
+        },
+        comfyUI: {
+            ...defaultConfig.comfyUI,
+            ...(persistedComfyUI || {}),
+            enabled: Boolean(persistedComfyUI?.enabled),
+            baseUrl: typeof persistedComfyUI?.baseUrl === "string" && persistedComfyUI.baseUrl.trim() ? persistedComfyUI.baseUrl : defaultConfig.comfyUI.baseUrl,
+            capability: comfyUICapability,
+            workflowId: comfyUIWorkflowID,
+            workflows: comfyUIWorkflows,
+            defaultWorkflows: comfyUIDefaultWorkflows,
         },
     };
     const hasPersistedChannels = Array.isArray(persistedConfig.channels);

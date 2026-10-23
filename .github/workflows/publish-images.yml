@@ -15,6 +15,7 @@ permissions:
 jobs:
   publish:
     name: Publish ${{ matrix.image }}
+    if: github.repository == 'glanderness/BeefTV'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -91,7 +92,7 @@ jobs:
 
   release:
     name: Publish release assets
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.repository == 'glanderness/BeefTV' && startsWith(github.ref, 'refs/tags/v')
     needs: publish
     runs-on: ubuntu-latest
     steps:
