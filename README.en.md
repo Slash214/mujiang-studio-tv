@@ -1,106 +1,99 @@
-<p align="center">
-  <img src="assets/readme/beeftv-wordmark.svg" width="640" alt="BeefTV — High-performance, lightweight, AI-native video workspace">
-</p>
+[简体中文](README.md) | [English](README.en.md)
 
-<p align="center"><strong>High-performance · Lightweight · AI Native</strong></p>
+# Mujiang Studio TV
 
-<p align="center">
-  An AI-native workspace for video creation.<br>
-  Connect ideas, models, and media on one freeform canvas.
-</p>
+A local AI motion-comic and short-drama workspace customized from BeefTV. Connect model APIs and ComfyUI to organize scripts, storyboards, assets, and video shots for personal production.
 
-<p align="center">
-  <a href="https://github.com/glanderness/BeefTV/stargazers"><img src="https://img.shields.io/github/stars/glanderness/BeefTV?style=flat-square&amp;logo=github&amp;label=Stars&amp;labelColor=303030&amp;color=E86C36" alt="BeefTV GitHub stars"></a>
-  <a href="https://github.com/glanderness/BeefTV/releases/latest"><img src="https://img.shields.io/github/v/release/glanderness/BeefTV?style=flat-square&amp;label=Release&amp;labelColor=303030&amp;color=525252" alt="Latest BeefTV release"></a>
-  <a href="QUICKSTART.md#下载与首次打开"><img src="https://img.shields.io/badge/Desktop-macOS%20%7C%20Windows-525252?style=flat-square&amp;labelColor=303030" alt="Desktop support for macOS and Windows"></a>
-  <a href="QUICKSTART.md"><img src="https://img.shields.io/badge/Workspace-Local--first-525252?style=flat-square&amp;labelColor=303030" alt="Local-first workspace"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Source%20Available-525252?style=flat-square&amp;labelColor=303030" alt="Source-available license; see LICENSE for terms"></a>
-</p>
+Maintained by [Slash214](https://github.com/Slash214), this repository is currently intended for personal local creation and development. It builds on an existing workspace to address practical production problems and develop reusable creative workflows.
 
-<p align="center">
-  <a href="https://beeftv.app/"><img src="assets/readme/button-website.svg" width="180" alt="Visit the BeefTV website"></a>
-  <a href="https://github.com/glanderness/BeefTV/releases/latest"><img src="assets/readme/button-download.svg" width="175" alt="Download BeefTV desktop app"></a>
-  <a href="https://beeftv.app/assets/beeftv-wecom-qr.png"><img src="assets/readme/button-community.svg" width="185" alt="Scan to join the BeefTV community"></a>
-  <a href="https://x.com/beefnoode"><img src="assets/readme/button-x.svg" width="180" alt="Follow @beefnoode on X"></a>
-</p>
+## Purpose
 
-<p align="center">
-  <a href="README.md">简体中文</a> ·
-  <a href="#product-demo">Product demo</a> ·
-  <a href="docs/content/docs/overview/features.mdx">Feature list</a> ·
-  <a href="QUICKSTART.md">Get started</a> ·
-  <a href="CONTRIBUTING.md">Contributing</a>
-</p>
+Organize stories, characters, locations, storyboard images, and video shots on one canvas. Use your own model APIs or local ComfyUI, import externally created media, and choose which versions to adopt.
 
-## Product demo
+Development is ongoing. Model and workflow availability depends on your configuration; this is not a promise of one-click episode production. The repository uses the Mujiang Studio TV name, while some application UI, package names, and scripts retain BeefTV naming.
 
-https://github.com/user-attachments/assets/94fe6a39-6933-44b3-a9a9-dbc28b2d284c
+## Features
 
-[Download the product demo video](https://github.com/glanderness/BeefTV/releases/download/v1.5.5/beeftv-demo.mp4)
+| Module | Purpose |
+| --- | --- |
+| Projects and canvas | Organize creative content and media relationships with text, image, and video nodes and connections |
+| Creative assistant | Help prepare stories, scripts, storyboards, and prompts alongside canvas operations |
+| Asset management | Import and reuse characters, locations, props, and externally generated images and videos |
+| Model channels | Configure your own text, image, video, and other model APIs |
+| Local generation | Connect ComfyUI and configure image and video workflows, input mappings, and default usage slots |
+| Shot production and processing | Prepare generation tasks with references, then preview, select, and process results |
 
-## Why BeefTV
+Customizations in this branch primarily cover local development startup, ComfyUI workflow integration, H3 Director input adaptation, Qwen image workflow preparation, and model and workflow selection on the canvas.
 
-| High Performance | Lightweight | AI Native |
-| --- | --- | --- |
-| Optimized for complex creative canvases. Viewport rendering, node loading, media previews, and generation tasks are decoupled to keep projects responsive as they grow. | Designed for low resource use and an easy start. Begin creating in one desktop workspace, with capabilities loaded as needed. | AI is an essential part of the workspace, not an extra button. Let agents take an active role in your AIGC creation workflow. |
-
-## One canvas, a complete creative workflow
-
-- **Generate:** Create text, images, video, and audio from prompts or reference media.
-- **Organize:** Connect nodes to build relationships between assets, creative context, and generation steps.
-- **Refine:** Crop, annotate, inpaint, split, reference, and combine results.
-- **Iterate:** Keep your process and reuse assets, turning a single generation into an evolving workflow.
-
-BeefTV also includes project and personal asset libraries, asynchronous tasks, model providers, and creative tools. See the full [feature list](docs/content/docs/overview/features.mdx).
-
-## How it works
+## Suggested production flow
 
 ```text
-Ideas / reference media
-         ↓
-AI-native freeform canvas
-         ↓
-Models + creative tools
-         ↓
-Text / images / video / audio / storyboards
-         ↓
-Editable, reusable workflows that you can keep building on
+Idea / novel / script
+        ↓
+Prepare and confirm the script
+        ↓
+Define characters, locations, and props
+        ↓
+Plan shots, prepare and approve images
+        ↓
+Configure video workflows, generate and review individual shots
+        ↓
+Sound, editing, and export
 ```
 
-## Open by design
+This is a staged process with human review. Generate images through configured APIs or import them from tools such as Midjourney; use local ComfyUI for video generation. Check sound, editing, and export capabilities against your chosen tools and workflows. Validate one short shot before scaling up.
 
-- Configure text, image, video, and audio model providers freely, without being tied to a single provider.
-- Manage projects, canvases, assets, and tasks in one workspace, with data that can be saved and migrated locally.
-- Built for desktop with React, Go, and Wails, with extensible model protocols and workspace capabilities.
+## Local startup (Windows source development)
 
-## Get started
+Install Git, Go 1.25 or later, Bun, Node.js 24, and a GCC toolchain for Go CGO builds. Make their commands available in your terminal. Local generation additionally requires a working ComfyUI installation, models, and the corresponding nodes.
 
-Download the desktop app and read the first-launch instructions for macOS in [Quick Start](QUICKSTART.md#下载与首次打开).
-
-```bash
-git clone https://github.com/glanderness/BeefTV.git
-cd BeefTV
-./scripts/build-beeftv-release.sh
+```powershell
+git clone https://github.com/Slash214/mujiang-studio-tv.git
+cd mujiang-studio-tv
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-local.ps1
 ```
 
-For system requirements, Windows builds, and local development, see [`QUICKSTART.md`](QUICKSTART.md) and the [desktop release guide](docs/desktop-release.md). After launching, add a model provider to start creating.
+The startup script installs missing frontend dependencies, prepares the assistant runtime, and builds the local backend. The first run requires network access; startup time depends on downloads and compilation.
 
-## Contributing and license
+- Workspace: <http://localhost:13000>
+- Local backend: `http://127.0.0.1:18080`
+- Development data: `.local/project-workbench-debug/`
+- Startup logs: `.local/logs/`
 
-Issues and pull requests are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the development workflow and testing requirements.
+The script exits if a required port is occupied; check existing services first. In the workspace, configure your own API credentials under model settings, then connect ComfyUI and configure workflows under local generation settings.
 
-The repository uses licenses with different scopes. Original content added under the new license, starting with the commit that first introduced it and subject to its terms, is covered by the [`BeefTV Source Available License 1.0`](LICENSE). Historical content released under MIT remains under the MIT terms retained in the same file. Upstream and third-party materials keep their respective licenses.
+Windows desktop builds use `scripts/build-beeftv-windows-release.ps1`. See the [desktop release guide](docs/desktop-release.md) for toolchain, packaging, and WebView2 requirements. Source development startup and desktop packaging are separate workflows.
 
-The new license permits self-hosting, internal customization, and creating and selling works with BeefTV. Written authorization is required for commercial resale, rebranding and resale, paid deployment or custom delivery of covered software, and providing hosted features to third parties, whether free or paid. Independent tutorials, training, and general technical consulting may be paid services, but must not be used to deliver the software system indirectly. Contact us about authorization at [lucas@bf-labs.cn](mailto:lucas@bf-labs.cn).
+## Technology
 
-The new restrictions do not apply retroactively to historical MIT content or override independently licensed third-party materials. This is a source-available license; the entire repository should not be treated as standard MIT or as an open source project under the OSI definition. See the [license guide](docs/content/docs/overview/licensing.mdx) for covered scenarios and boundaries, and [`NOTICE`](NOTICE) for upstream sources and third-party attributions.
+| Layer | Technology |
+| --- | --- |
+| Frontend | React, TypeScript, Vite, Ant Design, Tailwind CSS |
+| State and data fetching | Zustand, TanStack Query |
+| Backend and storage | Go, Gin, GORM, SQLite |
+| Desktop | Wails, Windows WebView2 |
+| Assistant runtime | Node.js, pi SDK |
+| Generation and media processing | Model APIs, ComfyUI, FFmpeg |
 
-## ⭐ Star History
+## Configuration and data safety
 
-<a href="https://www.star-history.com/?repos=glanderness%2FBeefTV&amp;type=date&amp;legend=bottom-right">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=glanderness/BeefTV&amp;type=date&amp;theme=dark&amp;legend=bottom-right" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=glanderness/BeefTV&amp;type=date&amp;legend=bottom-right" />
-    <img alt="BeefTV GitHub star history" src="https://api.star-history.com/chart?repos=glanderness/BeefTV&amp;type=date&amp;legend=bottom-right" />
-  </picture>
-</a>
+- Personal API keys, project databases, chat history, creative assets, and model weights are not included. Existing upstream demo and test resources are retained.
+- Do not commit local files such as `.local/`, `.env`, databases, or `.settings-key`.
+- Configure API services, ComfyUI, model weights, and plugins separately. Uploading source code does not back up these runtime environments.
+- This is currently a local workspace; do not deploy it directly as a public multi-user service.
+
+## Documentation
+
+- [Documentation index](docs/index.md)
+- [Local development](docs/content/docs/backend/local-development.mdx)
+- [Workspace features](docs/content/docs/overview/features.mdx)
+- [Model configuration persistence](docs/local-model-config-persistence.md)
+- [Desktop builds and releases](docs/desktop-release.md)
+
+Some documents retain upstream BeefTV guidance. Use them together with this branch's actual code, configuration, and validation results.
+
+## Origin and licensing
+
+This project is customized from [BeefTV](https://github.com/glanderness/BeefTV). Its original commit history, copyright notices, and third-party attributions are retained. Thanks to the upstream authors and contributors.
+
+License scope is defined by [LICENSE](LICENSE), [NOTICE](NOTICE), and [third-party notices](THIRD_PARTY_NOTICES.md). Changes to the project name and README do not alter those terms. This repository does not grant additional commercial-use or redistribution rights beyond the applicable licenses. See the [licensing guide](docs/content/docs/overview/licensing.mdx).

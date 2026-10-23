@@ -1,106 +1,99 @@
-<p align="center">
-  <img src="assets/readme/beeftv-wordmark.svg" width="640" alt="BeefTV — High-performance, lightweight, AI-native video workspace">
-</p>
+[简体中文](README.md) | [English](README.en.md)
 
-<p align="center"><strong>High-performance · Lightweight · AI Native</strong></p>
+# 幕匠 Studio TV
 
-<p align="center">
-  面向 AI 时代的视频创作工作台。<br>
-  在一个自由画布中连接创意、模型与素材。
-</p>
+基于 BeefTV 二次开发的本地 AI 漫剧与短剧创作工作台，连接模型 API 与 ComfyUI，围绕剧本、分镜、素材和镜头制作完善个人创作流程。
 
-<p align="center">
-  <a href="https://github.com/glanderness/BeefTV/stargazers"><img src="https://img.shields.io/github/stars/glanderness/BeefTV?style=flat-square&amp;logo=github&amp;label=Stars&amp;labelColor=303030&amp;color=E86C36" alt="BeefTV GitHub Stars"></a>
-  <a href="https://github.com/glanderness/BeefTV/releases/latest"><img src="https://img.shields.io/github/v/release/glanderness/BeefTV?style=flat-square&amp;label=Release&amp;labelColor=303030&amp;color=525252" alt="BeefTV 最新版本"></a>
-  <a href="QUICKSTART.md#下载与首次打开"><img src="https://img.shields.io/badge/Desktop-macOS%20%7C%20Windows-525252?style=flat-square&amp;labelColor=303030" alt="桌面版支持 macOS 和 Windows"></a>
-  <a href="QUICKSTART.md"><img src="https://img.shields.io/badge/Workspace-Local--first-525252?style=flat-square&amp;labelColor=303030" alt="本地优先工作区"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Source%20Available-525252?style=flat-square&amp;labelColor=303030" alt="源码可用，许可范围见 LICENSE"></a>
-</p>
+本仓库由 [Slash214](https://github.com/Slash214) 维护，当前用于个人本地创作与开发。以已有工作台为基础，优先解决实际制作中的问题，逐步积累可复用的创作流程。
 
-<p align="center">
-  <a href="https://beeftv.app/"><img src="assets/readme/button-website.svg" width="180" alt="访问 BeefTV 官网"></a>
-  <a href="https://github.com/glanderness/BeefTV/releases/latest"><img src="assets/readme/button-download.svg" width="175" alt="下载 BeefTV 桌面版"></a>
-  <a href="https://beeftv.app/assets/beeftv-wecom-qr.png"><img src="assets/readme/button-community.svg" width="185" alt="扫码加入 BeefTV 社群"></a>
-  <a href="https://x.com/beefnoode"><img src="assets/readme/button-x.svg" width="180" alt="在 X 关注 @beefnoode"></a>
-</p>
+## 项目定位
 
-<p align="center">
-  <a href="README.en.md">English</a> ·
-  <a href="#产品演示">产品演示</a> ·
-  <a href="docs/content/docs/overview/features.mdx">功能清单</a> ·
-  <a href="QUICKSTART.md">开始使用</a> ·
-  <a href="CONTRIBUTING.md">参与贡献</a>
-</p>
+在一个画布中组织故事、人物、场景、分镜图片和视频镜头，按需使用自己的模型接口或本地 ComfyUI。允许导入外部制作的素材，并由创作者选择和确认使用哪个版本。
 
-## 产品演示
+当前仍在持续开发，模型与工作流的可用性取决于实际配置；不承诺一键生成完整漫剧。仓库说明使用「幕匠 Studio TV」名称，应用中的部分界面、包名与脚本仍沿用 BeefTV。
 
-https://github.com/user-attachments/assets/94fe6a39-6933-44b3-a9a9-dbc28b2d284c
+## 功能概览
 
-[下载产品演示视频](https://github.com/glanderness/BeefTV/releases/download/v1.5.5/beeftv-demo.mp4)
+| 模块 | 用途 |
+| --- | --- |
+| 项目与自由画布 | 用文本、图片、视频节点及连线组织创作内容和素材关系 |
+| 创作助手 | 辅助整理故事、剧本、分镜和提示词，配合画布操作 |
+| 素材管理 | 导入和复用人物、场景、道具以及外部生成的图片、视频 |
+| 模型渠道 | 配置自己的文本、图片、视频等模型 API |
+| 本地生成 | 接入 ComfyUI，配置图片与视频工作流、输入映射和默认用途 |
+| 镜头制作与处理 | 使用参考图准备生成任务，预览、选用和处理生成结果 |
 
-## Why BeefTV
+本分支的二开内容主要涉及本地开发启动、ComfyUI 工作流接入、H3 Director 输入适配、Qwen 图片工作流准备，以及画布中的模型与工作流选择。
 
-| High Performance | Lightweight | AI Native |
-| --- | --- | --- |
-| 面向复杂创作画布优化。视口渲染、节点加载、媒体预览与生成任务彼此解耦，让项目增长时仍能保持顺畅操作。 | 以低资源占用和低使用门槛为目标。一个桌面工作区即可开始创作，能力按需加载，追求轻量化 | AI 不是附加按钮，而是工作台中不可或缺的一部分。让Agent真正参与并且主导你的AIGC创作流程。 |
-
-## 一个画布，完整创作链路
-
-- **生成**：从提示词或参考素材生成文字、图片、视频与音频。
-- **组织**：用节点和连线建立素材关系、创作上下文与生成流程。
-- **加工**：继续裁切、标注、局部重绘、拆分、引用和组合结果。
-- **迭代**：保留过程、复用素材，让一次生成变成可持续演进的工作流。
-
-BeefTV 同时提供项目库、个人资产库、异步任务、模型渠道与创作工具。完整范围见[功能清单](docs/content/docs/overview/features.mdx)。
-
-## 工作方式
+## 建议的制作流程
 
 ```text
-想法 / 参考素材
-       ↓
-AI Native 自由画布
-       ↓
-模型 + 创作工具
-       ↓
-文字 / 图片 / 视频 / 音频 / 分镜
-       ↓
-可编辑、可复用、可继续生成的工作流
+想法 / 小说 / 剧本
+        ↓
+整理剧本并确认
+        ↓
+人物、场景与道具设定
+        ↓
+拆分镜，准备并确认图片
+        ↓
+配置视频工作流，逐镜生成与审看
+        ↓
+声音处理、剪辑与导出
 ```
 
-## Open by design
+这是逐阶段制作的工作方式，包含人工确认。图片可通过配置的接口生成，也可从 Midjourney 等工具导入；视频可交给本地 ComfyUI。具体声音、剪辑和导出能力请按所用工具与工作流核对，先验证一个短镜头，再扩大制作范围。
 
-- 可以自由配置文本、图片、视频与音频模型渠道，不绑定单一 Provider。
-- 项目、画布、素材与任务由统一工作区管理，数据可以本地保存和迁移。
-- 桌面端基于 React、Go 与 Wails，模型协议和工作台能力可继续自定义或者扩展。
+## 本地启动（Windows 源码开发）
 
-## 开始使用
+准备 Git、Go 1.25 或以上、Bun、Node.js 24，以及 Go CGO 构建所需的 GCC 工具链，并确保命令可在终端使用。使用本地生成时，另外准备可运行的 ComfyUI、模型和对应节点。
 
-下载桌面版及 Mac 首次打开说明见 [快速开始](QUICKSTART.md#下载与首次打开)。
-
-```bash
-git clone https://github.com/glanderness/BeefTV.git
-cd BeefTV
-./scripts/build-beeftv-release.sh
+```powershell
+git clone https://github.com/Slash214/mujiang-studio-tv.git
+cd mujiang-studio-tv
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-local.ps1
 ```
 
-详细环境要求、Windows 构建与本地开发方式见 [`QUICKSTART.md`](QUICKSTART.md) 和[桌面发布文档](docs/desktop-release.md)。首次启动后，添加自己的模型渠道即可开始创作。
+启动脚本会安装缺少的前端依赖、准备助手运行时并编译本地后端。首次运行需要网络，耗时取决于依赖下载和编译情况。
 
-## 贡献与许可
+- 工作台：<http://localhost:13000>
+- 本地后端：`http://127.0.0.1:18080`
+- 开发数据：`.local/project-workbench-debug/`
+- 启动日志：`.local/logs/`
 
-欢迎提交 Issue 和 Pull Request。开发流程与测试要求见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
+如果端口已被占用，脚本会退出，请先确认已有服务。进入工作台后，在模型配置中填写自己的 API 信息，在本地生成设置中连接 ComfyUI 并配置工作流。
 
-仓库采用分范围许可：自首次引入新许可的提交起，符合授权条件的新增原创内容适用 [`BeefTV Source Available License 1.0`](LICENSE)；已按 MIT 发布的历史内容继续适用同文件保留的 MIT 条款，上游和第三方材料保留各自许可。
+Windows 桌面构建入口为 `scripts/build-beeftv-windows-release.ps1`，具体工具链、打包与 WebView2 要求见[桌面发布文档](docs/desktop-release.md)。源码开发启动和桌面打包是不同流程。
 
-新许可允许自部署、内部二开及使用 BeefTV 制作并销售作品；对其覆盖的软件进行商业转售、套壳销售、收费部署或定制交付，以及免费或收费向第三方提供托管功能，均需事先书面授权。独立教程、培训和一般技术咨询可收费，不能借此变相交付软件系统。授权联系：[lucas@bf-labs.cn](mailto:lucas@bf-labs.cn)。
+## 技术栈
 
-新限制不追溯适用于历史 MIT 内容，也不覆盖第三方独立许可的材料。这是一份源码可用许可，不能将整个仓库视为标准 MIT 或 OSI 定义的开源项目。具体场景及覆盖边界见[许可说明](docs/content/docs/overview/licensing.mdx)，上游来源与第三方归属见 [`NOTICE`](NOTICE)。
+| 层次 | 技术 |
+| --- | --- |
+| 前端 | React、TypeScript、Vite、Ant Design、Tailwind CSS |
+| 状态与数据请求 | Zustand、TanStack Query |
+| 后端与存储 | Go、Gin、GORM、SQLite |
+| 桌面 | Wails、Windows WebView2 |
+| 助手运行时 | Node.js、pi SDK |
+| 生成与媒体处理 | 模型 API、ComfyUI、FFmpeg |
 
-## ⭐ Star History
+## 配置与数据安全
 
-<a href="https://www.star-history.com/?repos=glanderness%2FBeefTV&amp;type=date&amp;legend=bottom-right">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=glanderness/BeefTV&amp;type=date&amp;theme=dark&amp;legend=bottom-right" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=glanderness/BeefTV&amp;type=date&amp;legend=bottom-right" />
-    <img alt="BeefTV GitHub Star History" src="https://api.star-history.com/chart?repos=glanderness/BeefTV&amp;type=date&amp;legend=bottom-right" />
-  </picture>
-</a>
+- 仓库不包含个人 API Key、项目数据库、聊天记录、创作素材或模型权重；上游自带的演示和测试资源保留。
+- `.local/`、`.env`、数据库和 `.settings-key` 等本地文件不应提交到 Git。
+- API 服务、ComfyUI、模型权重及插件需要自行配置，上传源码不会同时备份这些运行环境。
+- 当前按本机工作台使用，不应直接作为开放公网的多人服务部署。
+
+## 文档入口
+
+- [文档目录](docs/index.md)
+- [本地开发说明](docs/content/docs/backend/local-development.mdx)
+- [工作台功能概览](docs/content/docs/overview/features.mdx)
+- [模型配置持久化](docs/local-model-config-persistence.md)
+- [桌面构建与发布](docs/desktop-release.md)
+
+部分文档沿用 BeefTV 上游说明，请结合本分支的实际代码、配置和验证结果使用。
+
+## 项目来源与许可
+
+本项目基于 [BeefTV](https://github.com/glanderness/BeefTV) 二次开发，保留原项目提交历史、版权声明及第三方归属。感谢上游作者与贡献者。
+
+许可范围以仓库中的 [LICENSE](LICENSE)、[NOTICE](NOTICE) 和[第三方声明](THIRD_PARTY_NOTICES.md) 为准。项目名称和 README 的调整不改变现有许可；本仓库不另行授予超出原许可范围的商业使用或再分发权利。具体说明见[许可文档](docs/content/docs/overview/licensing.mdx)。
